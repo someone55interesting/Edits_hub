@@ -69,52 +69,42 @@ class Edit(models.Model):
 
     # --- ЛОГИКА СОХРАНЕНИЯ И FFmpeg ---
     def save(self, *args, **kwargs):
+        # 1. Сначала просто сохраняем объект, чтобы файл улетел в облако
         is_new = self.pk is None
-        # Сначала просто сохраняем, чтобы файл загрузился в облако и получил URL
         super().save(*args, **kwargs)
 
-        # Если это новое видео и нет обложки — генерируем её
+        # 2. Если это новое видео и нет обложки, пробуем создать её
         if (is_new or not self.thumbnail) and self.video:
-            # Вызываем генерацию, но не даем ей уронить весь процесс
             try:
+                # Импортируем внутри, чтобы не грузить память при старте
+                import imageio_ffmpeg
                 self.generate_thumbnail()
             except Exception as e:
-                print(f"Ошибка при создании превью: {e}")
+                print(f"Превью не создано, но видео сохранено: {e}")
 
     def generate_thumbnail(self):
-        """Создает превью, используя встроенный FFmpeg из библиотеки"""
-        if not self.video:
-            return
-
+        import imageio_ffmpeg
         video_url = self.video.url
         thumbnail_name = f"thumb_{self.pk}.jpg"
         temp_thumb_path = f"/tmp/thumb_{self.pk}.jpg"
-
-        # Получаем 100% рабочий путь к встроенному FFmpeg!
         ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
 
         try:
+            # -t 1 (читать только начало), -ss 1 (кадр на 1-й секунде)
             command = [
-                ffmpeg_bin, '-i', video_url,
-                '-ss', '00:00:01.000',
-                '-vframes', '1',
-                '-y',
-                temp_thumb_path
+                ffmpeg_bin, '-ss', '00:00:01.000', '-i', video_url,
+                '-vframes', '1', '-q:v', '2', '-y', temp_thumb_path
             ]
-            
-            result = subprocess.run(command, capture_output=True, check=True)
+            subprocess.run(command, capture_output=True, check=True, timeout=15)
 
             if os.path.exists(temp_thumb_path):
                 with open(temp_thumb_path, 'rb') as f:
                     self.thumbnail.save(thumbnail_name, ContentFile(f.read()), save=False)
                 os.remove(temp_thumb_path)
+                # Сохраняем ТОЛЬКО поле thumbnail, чтобы не было рекурсии
                 super().save(update_fields=['thumbnail'])
-                print(f"Превью успешно создано для эдита {self.pk}")
-        
-        except subprocess.CalledProcessError as e:
-            print(f"FFmpeg ошибка: {e.stderr.decode()}")
         except Exception as e:
-            print(f"Общая ошибка генерации превью: {e}")
+            print(f"Ошибка FFmpeg: {e}")
 # ========== ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ==========
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
