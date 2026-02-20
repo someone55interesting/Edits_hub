@@ -7,6 +7,8 @@ from django.core.files.base import ContentFile
 from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+import imageio_ffmpeg
+
 
 # ========== КАТЕГОРИИ ==========
 class Category(models.Model):
@@ -80,26 +82,18 @@ class Edit(models.Model):
                 print(f"Ошибка при создании превью: {e}")
 
     def generate_thumbnail(self):
-        """Создает превью, используя URL видео из облака и FFmpeg на сервере"""
+        """Создает превью, используя встроенный FFmpeg из библиотеки"""
         if not self.video:
             return
 
         video_url = self.video.url
         thumbnail_name = f"thumb_{self.pk}.jpg"
-        # На Render папка /tmp/ всегда доступна для записи
         temp_thumb_path = f"/tmp/thumb_{self.pk}.jpg"
 
-        # Умный поиск FFmpeg:
-        # На Render путь будет /home/render/.bin/ffmpeg
-        # На локалке просто 'ffmpeg'
-        if not settings.DEBUG:
-            home_dir = os.environ.get('HOME', '/home/render')
-            ffmpeg_bin = os.path.join(home_dir, '.bin/ffmpeg')
-        else:
-            ffmpeg_bin = 'ffmpeg'
+        # Получаем 100% рабочий путь к встроенному FFmpeg!
+        ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
 
         try:
-            # FFmpeg берет 1 кадр на 1-й секунде прямо по ссылке
             command = [
                 ffmpeg_bin, '-i', video_url,
                 '-ss', '00:00:01.000',
@@ -108,25 +102,17 @@ class Edit(models.Model):
                 temp_thumb_path
             ]
             
-            # Запускаем процесс
             result = subprocess.run(command, capture_output=True, check=True)
 
             if os.path.exists(temp_thumb_path):
                 with open(temp_thumb_path, 'rb') as f:
-                    # Сохраняем файл в поле thumbnail (теперь он улетит в Cloudinary)
                     self.thumbnail.save(thumbnail_name, ContentFile(f.read()), save=False)
-                
-                # Чистим за собой временный файл
                 os.remove(temp_thumb_path)
-                
-                # Сохраняем только поле обложки, чтобы не вызвать бесконечный цикл save()
                 super().save(update_fields=['thumbnail'])
                 print(f"Превью успешно создано для эдита {self.pk}")
         
         except subprocess.CalledProcessError as e:
-            print(f"FFmpeg ошибка (код {e.returncode}): {e.stderr.decode() if e.stderr else 'unknown'}")
-        except FileNotFoundError:
-            print(f"FFmpeg не найден по пути: {ffmpeg_bin}. Проверь Build Command в Render!")
+            print(f"FFmpeg ошибка: {e.stderr.decode()}")
         except Exception as e:
             print(f"Общая ошибка генерации превью: {e}")
 # ========== ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ==========
