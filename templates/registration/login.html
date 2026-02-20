@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="h-[calc(100vh-64px)] flex items-center justify-center px-4 bg-black">
+    <div class="max-w-md w-full bg-zinc-950 p-8 rounded-3xl border border-white/10 shadow-2xl">
+        <h2 class="text-3xl font-bold text-white mb-2 text-center">С возвращением!</h2>
+        <p class="text-zinc-500 text-center mb-8">Войди, чтобы лайкать и выкладывать эдиты</p>
+        
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            {% for field in form %}
+                <div>
+                    <label class="block text-zinc-400 text-sm mb-2 px-1">{{ field.label }}</label>
+                    {{ field }}
+                </div>
+            {% endfor %}
+            <button type="submit" class="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-purple-500/20 hover:scale-[1.02] transition-transform active:scale-95 mt-4">
+                Войти
+            </button>
+        </form>
+        <p class="text-center text-zinc-500 mt-6 text-sm">
+            Нет аккаунта? <a href="{% url 'register' %}" class="text-purple-500 hover:underline">Создать</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

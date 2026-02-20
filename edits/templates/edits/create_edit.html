@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="min-h-screen flex items-start justify-center px-4 bg-black py-10 md:items-center" x-data="{ loading: false }">
+    
+    <div class="max-w-lg w-full bg-zinc-950 p-6 md:p-8 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden">
+        
+        <div x-show="loading" class="absolute inset-0 bg-black/90 backdrop-blur-md z-50 flex flex-col items-center justify-center text-center px-6" style="display: none;">
+            <div class="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p class="text-white font-bold text-lg">Магия FFmpeg работает...</p>
+            <p class="text-zinc-500 text-sm mt-2">Создаем превью и сохраняем эдит. Это может занять несколько секунд.</p>
+        </div>
+
+        <h2 class="text-2xl md:text-3xl font-bold text-white mb-6">Новый эдит</h2>
+        
+        <form method="post" enctype="multipart/form-data" class="space-y-5" @submit="loading = true">
+            {% csrf_token %}
+            
+            {% for field in form %}
+            <div class="flex flex-col">
+                <label class="block text-zinc-400 text-sm mb-2 px-1">{{ field.label }}</label>
+                
+                <div class="custom-form-field">
+                    {{ field }}
+                </div>
+
+                {% if field.errors %}
+                    <p class="text-red-500 text-xs mt-1">{{ field.errors.0 }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            <div class="flex flex-col">
+                <label class="block text-zinc-400 text-sm mb-2 px-1">Теги</label>
+                <input 
+                    type="text" 
+                    name="tags" 
+                    placeholder="аниме, дрифт, вайб..." 
+                    class="w-full bg-zinc-900 border border-zinc-800 text-white rounded-xl px-4 py-3.5 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all placeholder-zinc-600 text-sm md:text-base"
+                >
+                <p class="text-[10px] md:text-xs text-zinc-500 mt-2 px-1 leading-relaxed">
+                    Введите через запятую. Так ваш эдит найдут в поиске.
+                </p>
+            </div>
+
+            <div class="pt-6 flex flex-col-reverse md:flex-row gap-3 md:gap-4">
+                <a href="{% url 'my_profile' %}" class="w-full md:flex-1 text-center py-4 bg-zinc-900 text-white rounded-xl font-bold hover:bg-zinc-800 transition-all text-sm md:text-base">
+                    Отмена
+                </a>
+                <button type="submit" class="w-full md:flex-[2] bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-purple-500/20 hover:opacity-90 transition-all active:scale-95 text-sm md:text-base">
+                    Опубликовать
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    /* Хак, чтобы Django-поля (input, file) выглядели одинаково хорошо везде */
+    .custom-form-field input, 
+    .custom-form-field select, 
+    .custom-form-field textarea {
+        width: 100% !important;
+        background-color: #18181b !important; /* zinc-900 */
+        border: 1px solid #27272a !important; /* zinc-800 */
+        color: white !important;
+        border-radius: 0.75rem !important; /* 12px */
+        padding: 0.875rem 1rem !important;
+        font-size: 0.875rem !important;
+        transition: all 0.2s;
+        outline: none !important;
+    }
+    
+    .custom-form-field input:focus {
+        border-color: #a855f7 !important; /* purple-500 */
+        box-shadow: 0 0 0 1px #a855f7 !important;
+    }
+
+    /* Стиль для кнопки выбора файла */
+    .custom-form-field input[type="file"] {
+        padding: 0.5rem !important;
+        cursor: pointer;
+    }
+
+    /* На маках иногда браузеры добавляют свои отступы */
+    input::placeholder {
+        color: #52525b !important;
+    }
+</style>
+{% endblock %}

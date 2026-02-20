@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}@{{ profile_user.username }} | Edits_Hub{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-black text-white pb-24" 
+     x-data="{ 
+        tab: 'my', 
+        openVideoModal: false,
+        editModalOpen: false,
+        showFollowers: false,
+        showFollowing: false,
+        isFollowing: {% if is_followed %}true{% else %}false{% endif %},
+        followersCount: {{ followers_count }},
+        
+        videoData: {src: '', title: '', author: '', likes: 0, liked: false},
+
+        async toggleFollow(username) {
+            try {
+                const response = await fetch(`/toggle-follow/${username}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                if (!data.error) {
+                    this.isFollowing = data.is_followed;
+                    this.followersCount = data.followers_count;
+                    if(window.Alpine.store('toasts')) {
+                        Alpine.store('toasts').add(this.isFollowing ? 'Подписка оформлена' : 'Вы отписались', 'info');
+                    }
+                }
+            } catch (error) { console.error('Error:', error); }
+        },
+
+        openVideo(src, title, author, likes, liked) {
+            this.videoData = {src, title, author, likes, liked};
+            this.openVideoModal = true;
+            this.$nextTick(() => { this.$refs.modalPlayer.play(); });
+        },
+
+        closeVideo() {
+            this.openVideoModal = false;
+            this.$refs.modalPlayer.pause();
+            this.videoData.src = '';
+        }
+     }">
+
+    <div class="max-w-4xl mx-auto w-full px-4 pt-8">
+        
+        <div class="flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-12 mb-10">
+            <div class="relative group">
+                <div class="w-28 h-28 md:w-36 md:h-36 rounded-full p-1 bg-gradient-to-tr from-purple-600 via-pink-500 to-red-500 shadow-[0_0_30px_rgba(168,85,247,0.4)]">
+                    {% if profile_user.profile.avatar %}
+                        <img src="{{ profile_user.profile.avatar.url }}" class="w-full h-full rounded-full object-cover border-4 border-black">
+                    {% else %}
+                        <div class="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center text-5xl font-black border-4 border-black text-zinc-700 uppercase">
+                            {{ profile_user.username|slice:":1" }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="flex-1 text-center md:text-left">
+                <div class="flex flex-col md:flex-row items-center md:space-x-6 mb-6">
+    <h1 class="text-3xl font-black tracking-tighter mb-4 md:mb-0">@{{ profile_user.username }}</h1>
+    
+    {% if profile_user == user %}
+        <div class="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-3">
+            <button @click="editModalOpen = true" class="px-6 py-2 bg-zinc-800/80 hover:bg-zinc-700 border border-white/10 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center space-x-2 backdrop-blur-md">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                <span>Настройки</span>
+            </button>
+            <form action="{% url 'logout' %}" method="post">
+                {% csrf_token %}
+                <button type="submit" class="px-6 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30 hover:border-red-500/50 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center space-x-2 backdrop-blur-md">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    <span>Выйти</span>
+                </button>
+            </form>
+        </div>
+    {% else %}
+        <button @click="toggleFollow('{{ profile_user.username }}')"
+                :class="isFollowing ? 'bg-zinc-800' : 'bg-white text-black'"
+                class="px-10 py-2 rounded-xl font-bold text-sm transition-all active:scale-95"
+                x-text="isFollowing ? 'Вы подписаны' : 'Подписаться'"></button>
+    {% endif %}
+</div>
+
+                <div class="flex items-center justify-center md:justify-start space-x-10">
+                    <div class="text-center md:text-left"><span class="font-black text-xl block leading-none">{{ user_edits.count }}</span> <span class="text-zinc-500 text-[10px] uppercase font-bold tracking-widest">эдитов</span></div>
+                    <button @click="showFollowers = true" class="text-center md:text-left hover:text-purple-400 transition">
+                        <span class="font-black text-xl block leading-none" x-text="followersCount"></span> <span class="text-zinc-500 text-[10px] uppercase font-bold tracking-widest">подписчиков</span>
+                    </button>
+                    <button @click="showFollowing = true" class="text-center md:text-left hover:text-purple-400 transition">
+                        <span class="font-black text-xl block leading-none">{{ following_count }}</span> <span class="text-zinc-500 text-[10px] uppercase font-bold tracking-widest">подписок</span>
+                    </button>
+                </div>
+                <p class="mt-6 text-zinc-400 text-sm max-w-md italic">{{ profile_user.profile.bio|default:"Биографии пока нет..." }}</p>
+            </div>
+        </div>
+
+        {% if profile_user == user %}
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10">
+            <div class="bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-6 rounded-[2rem] relative overflow-hidden group">
+                <div class="absolute -right-2 -top-2 w-16 h-16 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"></div>
+                <p class="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Глобальные просмотры</p>
+                <h3 class="text-3xl font-black text-white italic">{{ total_views|default:"0" }}</h3>
+            </div>
+            <div class="bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-6 rounded-[2rem] relative overflow-hidden group">
+                <div class="absolute -right-2 -top-2 w-16 h-16 bg-pink-500/10 rounded-full blur-2xl group-hover:bg-pink-500/20 transition-all"></div>
+                <p class="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Суммарные лайки</p>
+                <h3 class="text-3xl font-black text-pink-500 italic">{{ total_likes|default:"0" }}</h3>
+            </div>
+            <div class="hidden md:block bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-6 rounded-[2rem] relative overflow-hidden group">
+                <div class="absolute -right-2 -top-2 w-16 h-16 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all"></div>
+                <p class="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Статус контента</p>
+                <h3 class="text-3xl font-black text-blue-500 italic">🔥 Top</h3>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="flex justify-center border-b border-zinc-900 sticky top-0 bg-black/80 backdrop-blur-md z-20">
+            <button @click="tab = 'my'" class="px-10 py-4 relative transition group" :class="tab === 'my' ? 'text-white' : 'text-zinc-600'">
+                <span class="text-xs font-bold uppercase tracking-widest">Работы</span>
+                <div x-show="tab === 'my'" x-transition class="absolute bottom-0 left-0 w-full h-0.5 bg-white"></div>
+            </button>
+            <button @click="tab = 'liked'" class="px-10 py-4 relative transition group" :class="tab === 'liked' ? 'text-white' : 'text-zinc-600'">
+                <span class="text-xs font-bold uppercase tracking-widest">Лайки</span>
+                <div x-show="tab === 'liked'" x-transition class="absolute bottom-0 left-0 w-full h-0.5 bg-white"></div>
+            </button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-1 md:gap-4 mt-6">
+            <template x-if="tab === 'my'">
+                <div class="contents">
+                    {% for edit in user_edits %}
+                    <div class="aspect-[3/4] bg-zinc-900 overflow-hidden cursor-pointer relative group rounded-lg md:rounded-2xl"
+                         @click="openVideo('{{ edit.video.url }}', '{{ edit.title|escapejs }}', '{{ edit.author.username|escapejs }}', {{ edit.total_likes }}, {% if user in edit.likes.all %}true{% else %}false{% endif %})">
+                        <img src="{{ edit.thumbnail.url }}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                            <span class="text-[10px] font-bold">👁 {{ edit.views_count }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </template>
+
+            <template x-if="tab === 'liked'">
+                <div class="contents">
+                    {% for edit in liked_edits %}
+                    <div class="aspect-[3/4] bg-zinc-900 overflow-hidden cursor-pointer relative group rounded-lg md:rounded-2xl"
+                         @click="openVideo('{{ edit.video.url }}', '{{ edit.title|escapejs }}', '{{ edit.author.username|escapejs }}', {{ edit.total_likes }}, true)">
+                        <img src="{{ edit.thumbnail.url }}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+                    </div>
+                    {% endfor %}
+                </div>
+            </template>
+        </div>
+
+        {% if profile_user == user %}
+        <div class="mt-16">
+            <h2 class="text-xl font-black italic mb-6">Performance / Аналитика видео</h2>
+            <div class="bg-zinc-900/30 rounded-[2rem] border border-white/5 overflow-hidden backdrop-blur-md">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-white/5 text-zinc-500 text-[10px] uppercase font-bold tracking-widest">
+                        <tr>
+                            <th class="px-6 py-4">Эдит</th>
+                            <th class="px-6 py-4">Просмотры</th>
+                            <th class="px-6 py-4">Лайки</th>
+                            <th class="px-6 py-4">Успех</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/5">
+                        {% for edit in user_edits %}
+                        <tr class="hover:bg-white/[0.02] transition-colors">
+                            <td class="px-6 py-4 flex items-center space-x-4">
+                                <img src="{{ edit.thumbnail.url }}" class="w-10 h-12 object-cover rounded-lg shadow-lg">
+                                <span class="text-sm font-bold text-white truncate max-w-[120px]">{{ edit.title }}</span>
+                            </td>
+                            <td class="px-6 py-4 font-mono text-sm">{{ edit.views_count }}</td>
+                            <td class="px-6 py-4 font-mono text-sm text-pink-500">{{ edit.total_likes }}</td>
+                            <td class="px-6 py-4">
+                                <div class="w-24 bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                                    <div class="bg-gradient-to-r from-purple-500 to-pink-500 h-full" style="width: 65%"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <template x-teleport="body">
+        <div x-show="editModalOpen" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl" x-cloak>
+            
+            <div @click.away="editModalOpen = false" class="bg-zinc-900 border border-white/10 w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-600 to-pink-600"></div>
+                
+                <h2 class="text-2xl font-black text-white mb-8 italic tracking-tighter">Настройки эдитора</h2>
+                
+                <form method="POST" enctype="multipart/form-data" class="space-y-6">
+                    {% csrf_token %}
+                    
+                    <div class="space-y-2">
+                        <label class="block text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em] ml-1">Аватар</label>
+                        <input type="file" name="avatar" class="w-full bg-white/5 border border-white/10 rounded-2xl p-3 text-xs text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-purple-600 file:text-white hover:file:bg-purple-500 cursor-pointer">
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em] ml-1">Никнейм</label>
+                        <input type="text" name="username" value="{{ profile_user.username }}" class="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white focus:ring-2 focus:ring-purple-500 transition-all outline-none font-bold">
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em] ml-1">Bio / О себе</label>
+                        <textarea name="bio" rows="3" class="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white focus:ring-2 focus:ring-purple-500 transition-all outline-none resize-none text-sm">{{ profile_user.profile.bio }}</textarea>
+                    </div>
+
+                    <div class="flex space-x-3 pt-6">
+                        <button type="submit" class="flex-1 py-4 bg-white text-black hover:bg-zinc-200 rounded-2xl font-black transition-all active:scale-95 shadow-xl">
+                            Сохранить
+                        </button>
+                        <button type="button" @click="editModalOpen = false" class="flex-1 py-4 bg-zinc-800 text-white rounded-2xl font-black transition-all">
+                            Отмена
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </template>
+
+    <template x-teleport="body">
+        <div x-show="openVideoModal" class="fixed inset-0 z-[2000] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-0 md:p-6" x-cloak>
+            <button @click="closeVideo()" class="absolute top-6 right-6 z-[2100] text-white/50 hover:text-white transition-colors bg-white/10 rounded-full p-2">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <div class="w-full h-full md:max-w-5xl md:h-auto md:aspect-video bg-zinc-950 flex flex-col md:flex-row shadow-2xl overflow-hidden md:rounded-[3rem] border border-white/5">
+                <div class="w-full md:w-2/3 bg-black flex items-center justify-center relative min-h-[50vh] md:min-h-0">
+                    <video x-ref="modalPlayer" :src="videoData.src" class="h-full w-full object-contain" controls loop playsinline></video>
+                </div>
+                <div class="w-full md:w-1/3 p-10 flex flex-col justify-between bg-zinc-900/30">
+                    <div>
+                        <div class="flex items-center space-x-4 mb-10">
+                            <div class="w-14 h-14 rounded-full bg-purple-600 flex items-center justify-center font-black text-2xl uppercase" x-text="videoData.author.charAt(0)"></div>
+                            <span class="font-black text-xl tracking-tighter" x-text="'@' + videoData.author"></span>
+                        </div>
+                        <h3 class="text-3xl font-black leading-tight italic tracking-tighter" x-text="videoData.title"></h3>
+                    </div>
+                    <div class="flex items-center space-x-4 border-t border-white/5 pt-8 mt-8">
+                        <svg class="w-8 h-8 transition-colors" :class="videoData.liked ? 'fill-red-500 text-red-500' : 'text-zinc-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+                        <span class="text-2xl font-black italic" x-text="videoData.likes"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+</div>
+
+<style>
+    [x-cloak] { display: none !important; }
+    /* Тонкий скроллбалл для таблицы */
+    .overflow-x-auto::-webkit-scrollbar { height: 4px; }
+    .overflow-x-auto::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+</style>
+{% endblock %}

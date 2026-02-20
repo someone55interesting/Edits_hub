@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Поиск | Edits_Hub{% endblock %}
+
+{% block content %}
+<div x-data="{ 
+    open: false, 
+    videoSrc: '', 
+    videoTitle: '', 
+    videoAuthor: '',
+    videoLikesCount: 0,
+    videoLiked: false,
+    videoId: null,
+    authorUsername: '',
+    isFollowing: false,
+    loaded: {},
+
+    async incrementView(id) {
+        fetch(`/hit-view/${id}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        });
+    },
+
+    async toggleLike() {
+        if (!this.videoId) return;
+        const response = await fetch(`/like/${this.videoId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        });
+        if (response.ok) {
+            const data = await response.json();
+            this.videoLiked = data.liked;
+            this.videoLikesCount = data.count;
+        }
+    },
+
+    async toggleFollow() {
+        if (!this.authorUsername) return;
+        {% if not user.is_authenticated %}
+            window.location.href = '{% url 'login' %}';
+            return;
+        {% endif %}
+        const response = await fetch(`/toggle-follow/${this.authorUsername}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        });
+        if (response.ok) {
+            const data = await response.json();
+            this.isFollowing = data.is_followed;
+        }
+    },
+
+    async shareVideo() {
+        const url = window.location.origin + '/profile/' + this.videoAuthor + '/'; 
+        await navigator.clipboard.writeText(url);
+        alert('Ссылка на автора скопирована!');
+    },
+
+    close() {
+        this.open = false;
+        this.videoSrc = '';
+        let v = document.getElementById('searchVideoPlayer');
+        if(v) v.pause();
+    }
+}" class="min-h-screen bg-black">
+
+    <div class="sticky top-0 z-40 bg-black/80 backdrop-blur-lg border-b border-white/5 p-4">
+        <form action="{% url 'search' %}" method="GET" class="max-w-3xl mx-auto relative">
+            <input 
+                type="text" name="q" value="{{ query }}"
+                placeholder="Что хочешь найти?" 
+                class="w-full bg-zinc-900 border-none rounded-2xl py-4 px-14 text-white placeholder-zinc-500 focus:ring-2 focus:ring-purple-600 transition-all shadow-2xl"
+            >
+            <svg class="absolute left-5 top-4.5 w-5 h-5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+        </form>
+    </div>
+
+    <div class="container mx-auto px-4 pt-10">
+        <h2 class="text-xl font-bold mb-8 text-zinc-400 px-2 uppercase tracking-widest text-sm">
+            {% if query %} Результаты по запросу: <span class="text-white">«{{ query }}»</span> {% else %} Рекомендуемые теги {% endif %}
+        </h2>
+
+        <div class="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
+            {% for edit in results %}
+                <div class="break-inside-avoid group relative rounded-2xl overflow-hidden border border-white/5 hover:border-purple-600 transition-all cursor-pointer mb-4"
+                    @click="
+                        open = true; 
+                        videoSrc = '{{ edit.video.url }}'; 
+                        videoTitle = '{{ edit.title|escapejs }}'; 
+                        videoAuthor = '{{ edit.author.username|escapejs }}';
+                        authorUsername = '{{ edit.author.username|escapejs }}';
+                        videoId = '{{ edit.id }}';
+                        videoLikesCount = {{ edit.total_likes|default:0 }};
+                        videoLiked = {% if user.is_authenticated and user in edit.likes.all %}true{% else %}false{% endif %};
+                        isFollowing = {% if user.is_authenticated and user.profile in edit.author.profile.followers.all %}true{% else %}false{% endif %};
+                        incrementView('{{ edit.id }}');
+                    "
+                >
+                    <div x-show="!loaded[{{ edit.id }}]" x-transition:leave="transition ease-in duration-300" class="w-full bg-zinc-900 animate-pulse h-64 rounded-2xl"></div>
+
+                    <img src="{{ edit.thumbnail.url }}" 
+                        class="w-full h-auto object-cover transform group-hover:scale-105 transition-transform duration-500"
+                        :class="loaded[{{ edit.id }}] ? 'opacity-100' : 'opacity-0 absolute inset-0'"
+                        x-init="if ($el.complete) loaded[{{ edit.id }}] = true"
+                        @load="loaded[{{ edit.id }}] = true"
+                    >
+                    
+                    <div x-show="loaded[{{ edit.id }}]" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span class="bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-xs font-bold text-white border border-white/20">Смотреть</span>
+                    </div>
+                </div>
+            {% empty %}
+                {% if query %}
+                    <div class="col-span-full py-20 text-center">
+                        <p class="text-zinc-600 text-lg italic">По твоему запросу ничего не нашлось...</p>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <template x-teleport="body">
+        <div x-show="open" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4 bg-black/95 backdrop-blur-xl" @keydown.escape.window="close()">
+            <button @click="close()" class="absolute top-4 right-4 z-[110] text-white/70 hover:text-white bg-black/40 rounded-full p-2 transition">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <div @click.away="close()" class="bg-zinc-950 w-full h-full md:h-auto md:max-w-5xl md:max-h-[90vh] md:rounded-3xl overflow-y-auto md:overflow-hidden flex flex-col md:flex-row shadow-2xl border border-white/10">
+                <div class="w-full md:w-2/3 bg-black flex items-center justify-center relative min-h-[50vh] md:min-h-0">
+                    <video id="searchVideoPlayer" x-show="videoSrc" :src="videoSrc" class="max-h-full max-w-full object-contain" controls autoplay loop></video>
+                </div>
+                <div class="w-full md:w-1/3 p-6 md:p-8 flex flex-col justify-between bg-zinc-900/30 text-white">
+                    <div>
+                        <div class="flex items-center space-x-4 mb-8">
+                            <div class="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center font-bold text-xl shadow-lg shadow-purple-500/20" x-text="videoAuthor ? videoAuthor.charAt(0).toUpperCase() : ''"></div>
+                            <div>
+                                <p class="font-bold text-lg" x-text="'@' + videoAuthor"></p>
+                                <p class="text-xs text-zinc-500">Автор эдита</p>
+                            </div>
+                        </div>
+                        <h2 x-text="videoTitle" class="text-2xl font-bold mb-8"></h2>
+                        <button x-show="authorUsername !== '{{ user.username }}'" @click="toggleFollow()" class="w-full py-4 rounded-2xl font-bold transition-all active:scale-95 text-sm mb-4" :class="isFollowing ? 'bg-zinc-800 text-zinc-400' : 'bg-white text-black hover:bg-zinc-200'">
+                            <span x-text="isFollowing ? 'Подписка оформлена' : 'Подписаться'"></span>
+                        </button>
+                    </div>
+                    <div class="flex justify-center border-t border-white/5 pt-8">
+                        <button @click="toggleLike()" class="flex items-center space-x-3">
+                            <svg class="w-10 h-10" :class="videoLiked ? 'fill-red-500 text-red-500' : 'text-zinc-700'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+                            <span class="text-2xl font-black" x-text="videoLikesCount"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+</div>
+{% endblock %}

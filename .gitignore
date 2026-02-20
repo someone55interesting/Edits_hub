@@ -1,0 +1,20 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# База данных (она нам на гитхабе не нужна)
+db.sqlite3
+
+# Статика и медиа (Cloudinary всё заменит)
+media/
+staticfiles/
+
+# Tailwind / Node
+node_modules/
+.eslintcache
+
+# Настройки сервера
+.env
+.DS_Store
