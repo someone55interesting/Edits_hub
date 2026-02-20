@@ -55,6 +55,18 @@ CLOUDINARY_STORAGE = {
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.VideoMediaCloudinaryStorage' 
 # Это заставит Django слать видео и фото в облако, а не на диск Render
 
+import dj_database_url
+import os
+
+# На сервере Render мы создадим переменную DATABASE_URL
+# А пока для теста можешь вставить её сюда (но потом удали перед пушем!)
+DATABASES = {
+    'default': dj_database_url.config(
+        default='postgresql://neondb_owner:npg_RF5YWD6Akovu@ep-mute-snow-airowrpf-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
+        conn_max_age=600
+    )
+}
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
