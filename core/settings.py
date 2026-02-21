@@ -104,3 +104,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Tailwind настройки
 TAILWIND_APP_NAME = 'theme'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# --- АВТОРИЗАЦИЯ ---
+LOGIN_URL = 'login' # Куда кидать неавторизованных юзеров
+LOGIN_REDIRECT_URL = 'home' # Куда кидать после успешного входа
