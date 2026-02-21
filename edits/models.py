@@ -4,9 +4,9 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import FileExtensionValidator
 from django.core.files.base import ContentFile
-from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+import imageio_ffmpeg
 
 class Category(models.Model):
     name = models.CharField(max_length=100)
@@ -33,40 +33,45 @@ class Edit(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
-        # Сохраняем сначала само видео
+        # Сохраняем видео на диск сервера
         super().save(*args, **kwargs)
         
-        # Пробуем сделать превью только если его нет
+        # Если превью нет, запускаем генерацию по локальному пути
         if not self.thumbnail and self.video:
             try:
                 self.generate_thumbnail()
             except Exception as e:
-                print(f"Thumbnail error ignored: {e}")
+                print(f"Ошибка превью: {e}")
 
     def generate_thumbnail(self):
-        import imageio_ffmpeg
-        # Берем URL видео (Cloudinary)
-        video_url = self.video.url
-        temp_thumb = f"/tmp/thumb_{self.pk}.jpg"
+        # ВАЖНО: теперь берем .path (путь на диске), а не .url
+        video_path = self.video.path 
+        thumb_name = f"thumb_{self.pk}.jpg"
+        temp_thumb = f"/tmp/{thumb_name}"
         ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
 
-        # Команда с жестким таймаутом, чтобы не вешать сервер
         command = [
-            ffmpeg_bin, '-ss', '00:00:01', '-i', video_url,
+            ffmpeg_bin, '-ss', '00:00:01', '-i', video_path,
             '-vframes', '1', '-q:v', '2', '-y', temp_thumb
         ]
         
         try:
-            # Даем FFmpeg всего 10 секунд. Если не успел - отмена.
-            subprocess.run(command, capture_output=True, timeout=10)
+            # Запускаем FFmpeg локально
+            subprocess.run(command, capture_output=True, timeout=15, check=True)
+            
             if os.path.exists(temp_thumb):
                 with open(temp_thumb, 'rb') as f:
-                    self.thumbnail.save(f"thumb_{self.pk}.jpg", ContentFile(f.read()), save=False)
-                os.remove(temp_thumb)
-                # Сохраняем только одно поле, чтобы не вызвать save() снова
+                    # Сохраняем картинку в поле
+                    self.thumbnail.save(thumb_name, ContentFile(f.read()), save=False)
+                
+                # Чистим временный файл
+                if os.path.exists(temp_thumb):
+                    os.remove(temp_thumb)
+                
+                # Обновляем только колонку thumbnail, чтобы не зациклить save()
                 Edit.objects.filter(pk=self.pk).update(thumbnail=self.thumbnail.name)
-        except Exception:
-            pass 
+        except Exception as e:
+            print(f"FFmpeg fail: {e}")
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
@@ -76,6 +81,7 @@ class Profile(models.Model):
 
     def __str__(self): return self.user.username
 
+# Сигналы оставляем как есть — они бронебойные
 @receiver(post_save, sender=User)
 def create_profile(sender, instance, created, **kwargs):
     if created:
@@ -83,5 +89,8 @@ def create_profile(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=User)
 def save_profile(sender, instance, **kwargs):
-    Profile.objects.get_or_create(user=instance) # Форсированное создание если пропал
-    instance.profile.save()
+    Profile.objects.get_or_create(user=instance)
+    try:
+        instance.profile.save()
+    except Exception:
+        pass

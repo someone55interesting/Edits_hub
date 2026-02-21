@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-import dj_database_url
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -8,7 +7,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-a7ru=82$#4@^56dn7i45_wytk@%(f6j@p^q!$^jf8ty++az4kz')
 
-# DEBUG на сервере должен быть False
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['*', '.onrender.com']
@@ -23,8 +21,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     
     # Твои приложения
-    'cloudinary_storage',
-    'cloudinary',
     'edits',
     'theme',
     'tailwind',
@@ -33,7 +29,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware', # Для Tailwind на Render
+    'whitenoise.middleware.WhiteNoiseMiddleware', 
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -61,31 +57,22 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# База данных (Neon PostgreSQL)
+# --- 1. БАЗА ДАННЫХ (SQLite как на локалке) ---
 DATABASES = {
-    'default': dj_database_url.config(
-        default='postgresql://neondb_owner:npg_RF5YWD6Akovu@ep-mute-snow-airowrpf-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require',
-        conn_max_age=600
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
 
-# --- НОВАЯ СИСТЕМА ХРАНЕНИЯ (DJANGO 5.0+) ---
-# Это заменяет DEFAULT_FILE_STORAGE и фиксит 404 ошибки
+# --- 2. СИСТЕМА ХРАНЕНИЯ (Убираем Cloudinary) ---
 STORAGES = {
     "default": {
-        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
-}
-
-# Настройки для Cloudinary
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': 'db9tyi4vy',
-    'API_KEY': '845546929983293',
-    'API_SECRET': 'YIUjBGwtoQbI1HT4MnarkAbnics',
-    'SECURE': True, # Важно для HTTPS на Render
 }
 
 # Password validation
@@ -102,7 +89,7 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# --- STATIC FILES ---
+# --- 3. STATIC FILES ---
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
@@ -110,9 +97,8 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'theme/static'),
 ]
 
-# --- MEDIA FILES ---
+# --- 4. MEDIA FILES (Локальное хранение на сервере) ---
 MEDIA_URL = '/media/'
-# Физический путь для локальной разработки (на сервере будет Cloudinary)
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Tailwind настройки
