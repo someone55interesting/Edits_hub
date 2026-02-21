@@ -106,5 +106,6 @@ TAILWIND_APP_NAME = 'theme'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # --- АВТОРИЗАЦИЯ ---
-LOGIN_URL = 'login' # Куда кидать неавторизованных юзеров
-LOGIN_REDIRECT_URL = 'home' # Куда кидать после успешного входа
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
