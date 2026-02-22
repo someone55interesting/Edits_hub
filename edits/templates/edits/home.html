@@ -87,7 +87,7 @@
             videoAuthor = '{{ edit.author.username|escapejs }}';
             authorUsername = '{{ edit.author.username|escapejs }}';
             videoId = '{{ edit.id }}';
-            videoLikesCount = {{ edit.total_likes|default:0 }};
+            videoLikesCount = {{ edit.likes.count }};
             videoLiked = {% if user.is_authenticated and user in edit.likes.all %}true{% else %}false{% endif %};
             isFollowing = {% if user.is_authenticated and user.profile in edit.author.profile.followers.all %}true{% else %}false{% endif %};
             incrementView('{{ edit.id }}');
@@ -183,4 +183,4 @@
         </div>
     </template>
 </div>
-{% endblock %}
+{% endblock %} 

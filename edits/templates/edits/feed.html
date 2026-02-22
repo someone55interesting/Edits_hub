@@ -27,11 +27,11 @@
         class="video-card h-screen w-full snap-start relative flex items-center justify-center bg-black"
         x-data="{ 
             liked: {% if user.is_authenticated and user in edit.likes.all %}true{% else %}false{% endif %},
-            likesCount: {{ edit.total_likes|default:0 }},
+            likesCount: {{ edit.likes.count }},
             isFollowing: {% if user.is_authenticated and user.profile in edit.author.profile.followers.all %}true{% else %}false{% endif %},
             
             async toggleLike() {
-                const response = await fetch('/like/{{ edit.id }}/', {
+                const response = await fetch('/toggle-like/{{ edit.id }}/', {
                     method: 'POST',
                     headers: { 'X-CSRFToken': '{{ csrf_token }}' }
                 });
@@ -47,7 +47,7 @@
                     window.location.href = '{% url 'login' %}';
                     return;
                 {% endif %}
-                const response = await fetch('/follow/{{ edit.author.username }}/', {
+                const response = await fetch('/toggle-follow/{{ edit.author.username }}/', {
                     method: 'POST',
                     headers: { 'X-CSRFToken': '{{ csrf_token }}' }
                 });

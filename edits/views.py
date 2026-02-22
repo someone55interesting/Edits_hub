@@ -4,7 +4,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.http import HttpResponseForbidden, JsonResponse
-from django.db.models import Q, F, Sum
+from django.db.models import Q, F, Sum, Count
 
 from .models import Edit, Tag
 from .forms import RegisterForm, EditForm, UserUpdateForm, ProfileUpdateForm
@@ -13,14 +13,13 @@ from .forms import RegisterForm, EditForm, UserUpdateForm, ProfileUpdateForm
 
 def home(request):
     """Главная страница со всеми эдитами (Pinterest Style)"""
-    edits = Edit.objects.all().order_by('-created_at')
+    edits = Edit.objects.annotate(likes_count_db=Count('likes')).order_by('-created_at')
     return render(request, 'edits/home.html', {'edits': edits})
 
 def feed(request):
     """Лента эдитов (TikTok Style)"""
-    edits = Edit.objects.all().order_by('-created_at')
+    edits = Edit.objects.annotate(likes_count_db=Count('likes')).order_by('-created_at')
     return render(request, 'edits/feed.html', {'edits': edits})
-
 # ========== ПРОФИЛЬ (ГЛАВНАЯ ЛОГИКА) ==========
 
 @login_required
