@@ -1,3 +1,4 @@
+from logging import DEBUG
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -11,7 +12,13 @@ SECRET_KEY = os.environ.get(
     "django-insecure-change-me-in-production"
 )
 
-DEBUG = os.environ.get("DEBUG", "False") == "True"
+if DEBUG:
+    # Обычное хранилище: Django просто ищет файлы в папках static
+    STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+else:
+    # Хранилище для продакшена (Render/Heroku): сжатие и кэширование
+    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
 
 ALLOWED_HOSTS = ["*", ".onrender.com"]
 
@@ -20,6 +27,10 @@ ALLOWED_HOSTS = ["*", ".onrender.com"]
 # APPS
 # ======================
 INSTALLED_APPS = [
+    # 1. Сначала хранилище
+    "cloudinary_storage", 
+    
+    # 2. Потом стандартная статика
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -27,16 +38,14 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
-    # твои приложения
+    # 3. Твои приложения
     "edits",
     "theme",
     "tailwind",
     "django_browser_reload",
-
-    # cloudinary (ВАЖНО)
     "cloudinary",
-    "cloudinary_storage",
 ]
+
 
 
 # ======================
@@ -154,5 +163,3 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
-
-print("CLOUDINARY:", os.getenv("CLOUDINARY_URL"))
